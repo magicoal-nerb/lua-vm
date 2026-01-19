@@ -22,7 +22,6 @@ export type Type = "return"
 	| "function"
 	| "variadic"
 	| "variable"
-	| "dot"
 	| "methodcall"
 	| "index"
 	| "call"
@@ -323,7 +322,7 @@ function Lua.parsePrimaryExp(lexer: Lexer.Lexer): Expression?
 			-- var ::= prefixexp `.´ Name
 			local name = lexer:assert(lexer:expect("literal"), "expected literal for .")
 			currentExpr = {
-				type = "dot",
+				type = "index",
 				left = currentExpr,
 				right = createConstantExpr(name),
 			} :: Expression
@@ -674,7 +673,7 @@ function Lua.parseFunction(lexer: Lexer.Lexer): FuncStmt
 		-- funcname ::= Name {`.` Name}
 		local name = assert(lexer:expect("literal"), "index expected literal")
 		expr = {
-			type = "dot",
+			type = "index",
 			left = expr,
 			right = createConstantExpr(name)
 		}
@@ -684,7 +683,7 @@ function Lua.parseFunction(lexer: Lexer.Lexer): FuncStmt
 		-- funcname ::= [`:´ Name]
 		local methodName = assert(lexer:expect("literal"), "index expected literal")
 		expr = {
-			type = "dot",
+			type = "index",
 			left = expr,
 			right = createConstantExpr(methodName)
 		}
@@ -942,8 +941,7 @@ function Lua.parseStat(lexer: Lexer.Lexer): Statement?
 	-- parse an expression instead and hope
 	local expr = Lua.parseExp(lexer) :: Expression
 	if expr and (expr :: any).type == "call" then
-		-- if it's a call, don't mess with it
-		return expr
+		-- if it's a call, don't mess with it..?
 	elseif lexer:isKey(',') or lexer:isKey('=') then
 		-- has to be an assignment
 		return Lua.parseAssignment(lexer, expr :: Expression)

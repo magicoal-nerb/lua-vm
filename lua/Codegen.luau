@@ -546,27 +546,94 @@ function Codegen.visitCompound(
 	local right = (expr.right :: Lua.BasicExpr)
 	local left = (expr.left :: Lua.BasicExpr)
 
-	local operator = (expr :: any).operator:sub(1,1)
-	if right.type == "constant" and LuaOperatorsConstant[operator] then
-		-- Get the constant variant of the operator
-		self:emitABC(
-			LuaOperatorsConstant[operator],
-			where,
-			self:visit(left, where + 1),
-			self:emitConstant(right.value)
-		)
+	local operator = (expr :: any).operator:sub(1, 1)
+	if left.type == "index" then
+		-- Index the left side
+		local object = self:visit(left.left, where + 1)
+		local indexer = left.right
+
+		if indexer.type == "constant" then
+			-- Get from constant variable
+			self:emitABC(
+				LuaInst.gettablek,
+				where,
+				object,
+				self:emitConstant(indexer.value)
+			)
+		else
+			-- Get from expression
+			self:emitABC(
+				LuaInst.gettable,
+				where,
+				object,
+				self:visit(right, where + 2)
+			)
+		end
+
+		-- Then, we do our operation
+		if right.type == "constant" and LuaOperatorsConstant[operator] then
+			-- Get the constant variant of the operator
+			self:emitABC(
+				LuaOperatorsConstant[operator],
+				where,
+				where,
+				self:emitConstant(right.value)
+			)
+		else
+			-- Otherwise, no need to
+			self:emitABC(
+				LuaOperators[operator],
+				where,
+				where,
+				self:visit(right :: Lua.BasicExpr, where + 2) :: number
+			)
+		end
+
+		if indexer.type == "constant" then
+			-- Set from constant variable
+			self:emitABC(
+				LuaInst.settablek,
+				object,
+				self:emitConstant(indexer.value),
+				where
+			)
+		else
+			-- Get from expression
+			self:emitABC(
+				LuaInst.settable,
+				object,
+				self:visit(indexer, where + 2),
+				where
+			)
+		end
 	else
-		-- Otherwise, no need to
-		local op = LuaOperators[operator]
-		self:emitABC(
-			op,
-			where,
-			self:visit(left, where + 1),
-			self:visit(right :: Lua.BasicExpr, where + 2) :: number
+		-- Default case where we don't need to worry
+		-- about side effects
+		local obj = self:visit(left, where + 1)
+		if right.type == "constant" and LuaOperatorsConstant[operator] then
+			-- Get the constant variant of the operator
+			self:emitABC(
+				LuaOperatorsConstant[operator],
+				where,
+				obj,
+				self:emitConstant(right.value)
+			)
+		else
+			-- Otherwise, no need to
+			self:emitABC(
+				LuaOperators[operator],
+				where,
+				obj,
+				self:visit(right :: Lua.BasicExpr, where + 2) :: number
+			)
+		end
+
+		self:emitABx(
+			LuaInst.move,
+			obj,
+			where
 		)
 	end
-
-	self:emitSet(left, where)
 end
 
 function Codegen.visitOperator(
@@ -759,8 +826,7 @@ function Codegen.emitSet(
 	where: number,
 	temp: number
 ): number
-	if lvalue.type == "dot"
-	or lvalue.type == "index" then
+	if lvalue.type == "index" then
 		-- we can emit the custom
 		-- set table instruction		
 		-- table portion
@@ -1344,7 +1410,6 @@ local LuaVisitors = {
 	["variadic"] = Codegen.visitVariadic,
 	["variable"] = Codegen.visitVariable,
 	["index"] = Codegen.visitDot,
-	["dot"] = Codegen.visitDot,
 	
 	["call"] = Codegen.visitCall,
 	["compound_stmt"] = Codegen.visitCompound,

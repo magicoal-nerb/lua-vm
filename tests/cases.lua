@@ -213,6 +213,32 @@ describe("Compound assignments", function()
 
 		expect(x).to.equal(0)
 	end)
+
+	it("should handle side-effects", function()
+		local called = false
+		local function sideeffect()
+			local function add(ok, what)
+				called = true
+			end
+
+			return setmetatable({ x = 2 }, { __add = add })
+		end
+
+		sideeffect() += 420
+		expect(called).to.equal(true)
+	end)
+
+	it("should handle side-effects 2", function()
+		local called = false
+		local obj
+		local function sideeffect()
+			obj = { x = 2 }
+			return obj
+		end
+
+		sideeffect().x += 420
+		expect(obj.x).to.equal(422)
+	end)
 end)
 
 describe("Vargs", function()
