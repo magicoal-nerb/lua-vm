@@ -33,7 +33,7 @@ end
 local function generateLookupTable(): {[number]: string}
 	-- generates a lookup table of operators
 	local lookup = {}
-	for phrase in string.gmatch([==[>= <= .. == ~=]==], '[^%s]+')do
+	for phrase in string.gmatch([==[>= <= .. == ~= += -= *= /= %= ^=]==], '[^%s]+')do
 		local pack = table.pack(string.byte(phrase, 1, -1))
 		local code = 0
 		for j = #pack, 1, -1 do
@@ -63,6 +63,7 @@ local LEX_RESERVED = generateReservedTable([[
 	end false for function if
 	in local nil not or
 	repeat return then true until while
+	continue
 ]])
 
 export type KeyType = string
@@ -194,6 +195,10 @@ function Lexer.isKey(self: Lexer, key: string): boolean
 	-- checks if the current lexeme's key matches ours
 	-- without immediately lexing again
 	return self.lexeme.key == key
+end
+
+function Lexer.getKey(self: Lexer): string
+	return self.lexeme.key
 end
 
 function Lexer.is(self: Lexer, token: Token): boolean

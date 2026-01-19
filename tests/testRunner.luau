@@ -17,6 +17,16 @@ local function runBytecode(name: string)
 	return Vm.fromBytecode(data, env)()
 end
 
+local function runSource(src: string)
+	local lex = Lexer.new(src)
+	local root = Lua.parse(lex)
+
+	-- generate bytecode
+	local gen = Codegen.new(root)
+	local bytecode = gen:emitBytecode()
+	return Vm.fromBytecode(bytecode, env)()
+end
+
 local function runScript(name: string)
 	-- create a lexer and a parser
 	local src: string = fs.readFile(name)

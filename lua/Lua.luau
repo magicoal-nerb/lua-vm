@@ -39,6 +39,8 @@ export type Type = "return"
 	| "assignment"
 	| "func_name"
 	| "func_method"
+	| "compound_stmt"
+	| "continue"
 
 local function createConstantExpr(value: any): BasicExpr
 	-- helper function to create constants
@@ -84,6 +86,13 @@ function Lua.parseBlock(lexer: Lexer.Lexer, shouldReturn: boolean): Block
 		-- break[`;`]
 		table.insert(block, {
 			type = "break",
+		})
+
+		lexer:expectKey(';')
+	elseif lexer:expectKey("continue") then
+		-- continue[`;`]
+		table.insert(block, {
+			type = "continue",
 		})
 
 		lexer:expectKey(';')
@@ -877,6 +886,23 @@ function Lua.parseAssignment(lexer: Lexer.Lexer, current: Expression): AssignStm
 	} :: AssignStmt
 end
 
+export type CompoundStmt = {
+	type: Type,
+	left: Expression,
+	right: Expression,
+}
+
+function Lua.parseCompoundStmt(lexer: Lexer.Lexer, current: Expression): CompoundStmt
+	local operator = lexer:pop()
+	local right = Lua.parseExp(lexer) :: Expression
+	return {
+		type = "compound_stmt",
+		operator = operator,
+		left = current,
+		right = right,
+	}
+end
+
 export type Statement = DoStmt
 	| WhileStmt
 	| RepeatStmt
@@ -885,6 +911,7 @@ export type Statement = DoStmt
 	| LocalStmt
 	| ForStmt
 	| AssignStmt
+	| CompoundStmt
 	| Expression
 	| Expr
 
@@ -920,6 +947,12 @@ function Lua.parseStat(lexer: Lexer.Lexer): Statement?
 	elseif lexer:isKey(',') or lexer:isKey('=') then
 		-- has to be an assignment
 		return Lua.parseAssignment(lexer, expr :: Expression)
+	end
+
+	local key = lexer:getKey()
+	if key:sub(2) == '=' then
+		-- has to be a compound statement!
+		return Lua.parseCompoundStmt(lexer, expr :: Expression)
 	end
 
 	return expr

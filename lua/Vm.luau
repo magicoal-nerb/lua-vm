@@ -178,7 +178,7 @@ function Vm.fromBytecode(raw: buffer, env: any): LuaWrap
 		for j = 1, closure.numInstructions do
 			closure.instructions[j] = data:readu32()
 		end
-
+		
 		closures[i] = closure
 	end
 

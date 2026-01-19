@@ -236,7 +236,9 @@ end
 function Codegen.patchJmps(
 	self: Codegen,
 	from: number,
-	to: number
+
+	start: number,
+	finish: number
 )
 	-- sets dangling jmps(breaks rn)
 	-- to the end of the scope
@@ -244,7 +246,13 @@ function Codegen.patchJmps(
 	for i = #jmps, from + 1, -1 do
 		-- Remove the jmps at a time
 		local jmp = table.remove(jmps) :: number
-		self:setSbx(jmp, to - jmp)
+		if jmp > 0 then
+			-- if it is positive, it's a break
+			self:setSbx(jmp, finish - jmp)
+		else
+			-- if it is negative, it's a continue
+			self:setSbx(-jmp, start + jmp)
+		end
 	end
 end
 
@@ -529,6 +537,37 @@ local LuaOperators = {
 	["and"] = LuaInst["and"],
 	["or"] = LuaInst["or"],
 }
+
+function Codegen.visitCompound(
+	self: Codegen,
+	expr: Lua.CompoundStmt,
+	where: number
+)
+	local right = (expr.right :: Lua.BasicExpr)
+	local left = (expr.left :: Lua.BasicExpr)
+
+	local operator = (expr :: any).operator:sub(1,1)
+	if right.type == "constant" and LuaOperatorsConstant[operator] then
+		-- Get the constant variant of the operator
+		self:emitABC(
+			LuaOperatorsConstant[operator],
+			where,
+			self:visit(left, where + 1),
+			self:emitConstant(right.value)
+		)
+	else
+		-- Otherwise, no need to
+		local op = LuaOperators[operator]
+		self:emitABC(
+			op,
+			where,
+			self:visit(left, where + 1),
+			self:visit(right :: Lua.BasicExpr, where + 2) :: number
+		)
+	end
+
+	self:emitSet(left, where)
+end
 
 function Codegen.visitOperator(
 	self: Codegen,
@@ -950,6 +989,7 @@ function Codegen.visitForIncrement(
 	self:addVariable(name, where + 3)
 
 	-- visit the block
+	local start = self:getInstPtr()
 	self:visitBlock(stmt.block)
 
 	-- emit a forloop at the end of
@@ -958,7 +998,7 @@ function Codegen.visitForIncrement(
 	self:emitABx(LuaInst.forloop, where, length - 1)
 	self:setABx(prepPtr, where, length)
 
-	self:patchJmps(jmp, self:getInstPtr())
+	self:patchJmps(jmp, self:getInstPtr(), self:getInstPtr())
 	self:popScope()
 end
 
@@ -991,6 +1031,8 @@ function Codegen.visitForIterator(
 	-- visit the block
 	self:addVariable(index, where + 3)
 	self:addVariable(value, where + 4)
+
+	local start = self:getInstPtr()
 	self:visitBlock(stmt.block)
 
 	-- create the tforloop
@@ -999,7 +1041,7 @@ function Codegen.visitForIterator(
 	self:emitABx(LuaInst.tforloop, where, distance - 1)
 
 	-- revert scope state
-	self:patchJmps(jmp, self:getInstPtr())
+	self:patchJmps(jmp, start, self:getInstPtr())
 	self:popScope()
 
 	return where
@@ -1027,7 +1069,7 @@ function Codegen.visitRepeat(
 	self:emitSbx(LuaInst.jmp, 1)
 
 	-- revert scope state
-	self:patchJmps(jmp, self:getInstPtr())
+	self:patchJmps(jmp, self:getInstPtr(), self:getInstPtr())
 	self:popScope()
 
 	return where
@@ -1042,6 +1084,7 @@ function Codegen.visitWhile(
 	local begin = self:getInstPtr()
 	self:pushScope()
 
+	local start = self:getInstPtr()
 	local register = self:visit(stmt.exp, where)
 	self:emitSbx(LuaInst.test, register)
 
@@ -1056,7 +1099,7 @@ function Codegen.visitWhile(
 	-- ok set jmp
 	local finish = self:getInstPtr()
 	self:emitSbx(LuaInst.jmp, begin - finish)
-	self:patchJmps(jmp, self:getInstPtr())
+	self:patchJmps(jmp, start, self:getInstPtr())
 	self:setSbx(jmpPtr, self:getInstPtr() - jmpPtr)
 
 	return where
@@ -1136,6 +1179,12 @@ end
 function Codegen.visitBreak(self: Codegen)
 	-- Used for breaks and stuff
 	table.insert(self.jumps, self:getInstPtr())
+	self:emitSbx(LuaInst.jmp, 0)
+end
+
+function Codegen.visitContinue(self: Codegen)
+	-- Used for breaks and stuff
+	table.insert(self.jumps, -self:getInstPtr())
 	self:emitSbx(LuaInst.jmp, 0)
 end
 
@@ -1282,8 +1331,10 @@ function Codegen.visitReturn(
 end
 
 local LuaVisitors = {
+	["continue"] = Codegen.visitContinue,
 	["return"] = Codegen.visitReturn,
 	["break"] = Codegen.visitBreak,
+
 	["tableconstructor"] = Codegen.visitTable,
 	["constant"] = Codegen.visitConstant,
 	["not"] = Codegen.visitNot,
@@ -1296,6 +1347,7 @@ local LuaVisitors = {
 	["dot"] = Codegen.visitDot,
 	
 	["call"] = Codegen.visitCall,
+	["compound_stmt"] = Codegen.visitCompound,
 	["operator"] = Codegen.visitOperator,
 	["for_increment"] = Codegen.visitForIncrement,
 	["for_iterator"] = Codegen.visitForIterator,

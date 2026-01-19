@@ -116,6 +116,105 @@ describe("Closures", function()
 	end)
 end)
 
+describe("Control flow", function()
+	it("should properly increment", function()
+		local times = 0
+		for i = 1, 32 do
+			times += 1
+			i += 3
+		end
+
+		expect(times).to.equal(32)
+	end)
+
+	it("should break out immediately", function()
+		local i = 1
+		repeat
+			i += 2
+		until i < 5
+
+		expect(i).to.equal(3)
+	end)
+
+	it("should break out", function()
+		local i = 1
+		repeat
+			i += 2
+		until i > 5
+
+		expect(i).to.equal(7)
+	end)
+
+	it("should continue on for loops", function()
+		local sum = 0
+		for i = 1, 32 do
+			if i > 10 then
+				continue
+			end
+
+			sum += i
+		end
+
+		expect(sum).to.equal(55)
+	end)
+
+	it("should continue on while loops", function()
+		local sum = 0
+		local itr = 0
+		while itr < 32 do
+			itr += 1
+			if itr > 10 then
+				continue
+			end
+
+			sum += itr
+		end
+
+		expect(sum).to.equal(55)
+	end)
+
+	it("should continue on repeats", function()
+		local sum = 0
+		local itr = 0
+		repeat
+			itr += 1
+			if itr > 10 then
+				continue
+			end
+
+			sum += itr
+		until itr >= 32
+		
+		expect(sum).to.equal(55)
+	end)
+end)
+
+describe("Compound assignments", function()
+	it("should add table fields", function()
+		local tbl = { x = 32, y = 64 }
+
+		tbl.x += 32
+
+		for i = 1, 8 do
+			tbl.x += i
+		end
+
+		expect(tbl.x).to.equal(100)
+	end)
+
+	it("should do compound ops correctly", function()
+		local x = 30
+		x *= 2
+		x ^= 2
+		x /= 2
+		x += 2
+		x -= 2
+		x %= 2
+
+		expect(x).to.equal(0)
+	end)
+end)
+
 describe("Vargs", function()
 	it("should pass in other args and vargs correctly", function()
 		local function testVargs(...)
