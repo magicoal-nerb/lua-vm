@@ -628,11 +628,14 @@ function Codegen.visitCompound(
 			)
 		end
 
-		self:emitABx(
-			LuaInst.move,
-			obj,
-			where
-		)
+		if left.type == "variable" then
+			-- It's a variable, has to have
+			-- something!
+			self:emitSet(left, where, where + 1)
+		else
+			-- We'll set this value here
+			self:emitABx(LuaInst.move, obj, where)
+		end
 	end
 end
 

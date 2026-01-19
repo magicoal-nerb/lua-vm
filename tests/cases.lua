@@ -202,6 +202,17 @@ describe("Compound assignments", function()
 		expect(tbl.x).to.equal(100)
 	end)
 
+	it("should work on upvals", function()
+		local upval = 0
+		local function test()
+			upval += 3
+		end
+
+		test()
+
+		expect(upval).to.equal(3)
+	end)
+
 	it("should do compound ops correctly", function()
 		local x = 30
 		x *= 2
