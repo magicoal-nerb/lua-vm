@@ -1,6 +1,33 @@
 --!nocheck
 --!nolint
 
+describe("Cursed Code", function()
+	it("should give five", function()
+		local function five()
+			--trig+logs+string->number
+			s=table.concat({string.char(53)},"")
+			n=tonumber(s) or 5
+			a=math.abs(math.sin(n)/math.sin(n)==1 and n or tonumber(s) or 5)
+			return math.floor(math.sqrt(n*n)+0.5)
+		end
+
+		expect(five()).to.equal(5)
+	end)
+	
+	it("should decode", function()
+		local function decode(s)
+			out={}
+			for i=1,#s do
+			c=s:sub(i,i)
+			out[#out+1]=string.char(string.byte(c))
+			for _=1,3 do _=(#out)*1 end end
+			return table.concat(out)
+		end
+
+		expect(decode("hello")).to.equal("hello")
+	end)
+end)
+
 describe("Operators", function()
 	it("should be commutative", function()
 		local a, b, c = 5, 8, 11
