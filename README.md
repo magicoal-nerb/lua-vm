@@ -11,11 +11,11 @@ lune run tests/testRunner.luau
 
 ## Features
 * This project uses the traditional approach of making an AST that gets compiled into custom-made bytecode. All stages were manually written.
+* New extensions to the base Lua 5.1 runtime, adds if-else expressions, continue, and compound assignments
 * Written with being sandboxed in mind
 * Since the runtime is in Luau, make sure that performance critical code remains outside of the main VM
 
 ## Planned features
-* Reimplementing Luau's syntax and features?
 * Optimizing bytecode through inlining, loop unrolling, call alignment, and global access chains to improve interpreter performance
 
 ## Pictures
