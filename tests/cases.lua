@@ -33,6 +33,36 @@ describe("Operators", function()
 	end)
 end)
 
+describe("If-else expression", function()
+	it("should evaluate correctly", function()
+		local calls = 0
+		local function someFunc(num)
+			calls += 1
+			return calls + num
+		end
+
+		local value = if someFunc(someFunc(0) + 3) < 8
+			then "works"
+			else "doesn't work"
+
+		expect(value).to.equal("works")
+	end)
+
+	it("should evaluate nested if-else exprs", function()
+		local calls = 0
+		local function someFunc(num)
+			calls += 1
+			return calls + num
+		end
+
+		local value = if (if calls < 8 then calls + 3 else someFunc(0)) > 10 then "doesn't work"
+			elseif calls < 10 then "works"
+			else "doesn't work"
+
+		expect(value).to.equal("works")
+	end)
+end)
+
 describe("Methods", function()
 	it("should have self in args", function()
 		local object = {}
@@ -223,6 +253,17 @@ describe("Compound assignments", function()
 		x %= 2
 
 		expect(x).to.equal(0)
+	end)
+
+	it("should handle side-effects", function()
+		local calls = 0
+		local function sideeffect()
+			calls += 1
+			return 69
+		end
+
+		sideeffect() += 420
+		expect(calls).to.equal(1)
 	end)
 
 	it("should handle side-effects", function()

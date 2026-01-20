@@ -39,6 +39,7 @@ export type Type = "return"
 	| "func_name"
 	| "func_method"
 	| "compound_stmt"
+	| "if_else_expr"
 	| "continue"
 
 local function createConstantExpr(value: any): BasicExpr
@@ -204,6 +205,46 @@ export type UnopExpr = {
 	expr: Expression,
 }
 
+export type IfExprRoutine = {
+	expr: Expression,
+	body: Expression,
+}
+
+export type IfElseExpr = {
+	type: Type,
+
+	routines: { IfExprRoutine },
+	default: Expression,
+}
+
+function Lua.parseIfElseExpr(lexer: Lexer.lexer)
+	-- ifelseexp ::= 'if' exp 'then' exp {'elseif' exp 'then' exp} 'else' exp
+	local routines: { IfExprRoutine } = {}
+
+	repeat
+		local ifExpr = Lua.parseExp(lexer)
+		lexer:assert(lexer:expectKey("then"), "If-else expression expected 'then'")
+
+		local bodyExpr = Lua.parseExp(lexer)
+		table.insert(routines, {
+			expr = ifExpr,
+			body = bodyExpr,
+		})
+
+	until not lexer:expectKey("elseif")
+
+	lexer:assert(lexer:expectKey("else"), "If-else expression expected 'else'")
+	local defaultExpr = Lua.parseExp(lexer)
+
+	lexer:assert(defaultExpr, "If-else expression expected Expression")
+
+	return {
+		type = "if_else",
+		routines = routines,
+		default = defaultExpr,
+	} :: IfElseExpr
+end
+
 function Lua.parsePrefixExpr(lexer: Lexer.Lexer): Expression?
 	-- exp ::=  nil  |  false  |  true  |  Number  |  String  |  `...´  |
 	--		function  |  prefixexp  |  tableconstructor  |  exp binop exp  |  unop exp
@@ -217,6 +258,9 @@ function Lua.parsePrefixExpr(lexer: Lexer.Lexer): Expression?
 		lexer:assert(lexer:expectKey(')'), "expr expected end")
 
 		return expr
+	elseif lexer:expectKey("if") then
+		-- expects an ifelse expr
+		return Lua.parseIfElseExpr(lexer)
 	elseif lexer:expectKey("not") then
 		-- unop exp
 		local expr = Lua.parseExp(lexer, unopPriority) :: BasicExpr
@@ -310,6 +354,7 @@ export type Expression = BasicExpr
 	| Expr
 
 function Lua.parsePrimaryExp(lexer: Lexer.Lexer): Expression?
+	-- prefixexp ::= ifelseexp
 	-- prefixexp ::= var  |  functioncall  |  `(´ exp `)´
 	-- functioncall ::=  prefixexp args  |  prefixexp `:´ Name args
 	local currentExpr = Lua.parsePrefixExpr(lexer)

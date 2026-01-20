@@ -610,6 +610,10 @@ function Codegen.visitCompound(
 		-- Default case where we don't need to worry
 		-- about side effects
 		local obj = self:visit(left, where + 1)
+		if left.type ~= "variable" then
+			where = obj
+		end
+
 		if right.type == "constant" and LuaOperatorsConstant[operator] then
 			-- Get the constant variant of the operator
 			self:emitABC(
@@ -628,13 +632,10 @@ function Codegen.visitCompound(
 			)
 		end
 
-		if left.type == "variable" then
+		if where ~= obj then
 			-- It's a variable, has to have
 			-- something!
 			self:emitSet(left, where, where + 1)
-		else
-			-- We'll set this value here
-			self:emitABx(LuaInst.move, obj, where)
 		end
 	end
 end
@@ -775,7 +776,7 @@ function Codegen.visitTempExprList(
 	-- rule
 	local numExps = #exps
 	if numExps == 0 then
-		return self:emitABx(LuaInst.loadnil, where, numVars)
+		return
 	end
 
 	for i = 1, numExps - 1 do
@@ -1365,6 +1366,50 @@ function Codegen.visitLocalFunc(
 	return where 
 end
 
+function Codegen.visitIfElse(
+	self: Codegen,
+	stmt: Lua.IfElseExpr,
+	where: number
+)
+	local callbacks = {}
+	local numRoutines = #stmt.routines
+
+	local previous
+	for i, routine in stmt.routines do
+		-- jump here for the test
+		local ptr = self:getInstPtr()
+		if previous then
+			self:setSbx(previous, ptr - previous)
+		end
+
+		-- register
+		local register = self:visit(routine.expr, where + 1)
+		self:emitSbx(LuaInst.test, register)
+
+		-- set jmp
+		previous = self:getInstPtr()
+		self:emitSbx(LuaInst.jmp, 0)
+		self:visitMove(routine.body, where)
+
+		table.insert(callbacks, self:getInstPtr())
+		self:emitSbx(LuaInst.jmp, 0)
+	end
+
+	local ptr = self:getInstPtr()
+	self:setSbx(previous, ptr - previous)
+	
+	-- save scope state
+	self:visitMove(stmt.default, where)
+
+	-- set the callbacks like eyy
+	ptr = self:getInstPtr()
+	for i, callback in callbacks do
+		self:setSbx(callback, ptr - callback)
+	end
+
+	return where
+end
+
 function Codegen.visitReturn(
 	self: Codegen,
 	retStmt: Lua.ReturnStmt,
@@ -1427,6 +1472,7 @@ local LuaVisitors = {
 	["while"] = Codegen.visitWhile,
 	["repeat"] = Codegen.visitRepeat,
 	["assignment"] = Codegen.visitAssignment,
+	["if_else"] = Codegen.visitIfElse,
 }
 
 function Codegen.emitBytecode(self: Codegen): buffer
