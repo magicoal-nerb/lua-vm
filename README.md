@@ -1,4 +1,4 @@
-# lua-luau
+# lua-vm
 *<b>A Lua 5.1 runtime made from the ground up in typed Luau</b>*<br>
 
 ## Usage
