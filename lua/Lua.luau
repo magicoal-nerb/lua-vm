@@ -8,7 +8,7 @@
 -- https://parrot.github.io/parrot-docs0/0.4.7/html/languages/lua/doc/lua51.bnf.html
 -- magicoal_nerb :3
 
-local Lexer = require("./Lexer")
+local Lexer = require("@lua/Lexer")
 
 local Lua = {}
 
