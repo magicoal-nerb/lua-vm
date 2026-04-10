@@ -544,13 +544,13 @@ function Codegen.visitCompound(
 	where: number
 )
 	local right = (expr.right :: Lua.BasicExpr)
-	local left = (expr.left :: Lua.BasicExpr)
+	local left = (expr.left :: Lua.Expr)
 
 	local operator = (expr :: any).operator:sub(1, 1)
 	if left.type == "index" then
 		-- Index the left side
 		local object = self:visit(left.left, where + 1)
-		local indexer = left.right
+		local indexer = left.right :: Lua.BasicExpr
 
 		if indexer.type == "constant" then
 			-- Get from constant variable
@@ -776,7 +776,7 @@ function Codegen.visitTempExprList(
 	-- rule
 	local numExps = #exps
 	if numExps == 0 then
-		return
+		return 0
 	end
 
 	for i = 1, numExps - 1 do
