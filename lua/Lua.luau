@@ -8,7 +8,7 @@
 -- https://parrot.github.io/parrot-docs0/0.4.7/html/languages/lua/doc/lua51.bnf.html
 -- magicoal_nerb :3
 
-local Lexer = require("@lua/Lexer")
+local Lexer = require("./Lexer")
 
 local Lua = {}
 
@@ -29,6 +29,7 @@ export type Type = "return"
 	| "for_increment"
 	| "for_iterator"
 	| "if"
+	| "if_else"
 	| "local_var"
 	| "local_func"
 	| "closure"
@@ -217,7 +218,7 @@ export type IfElseExpr = {
 	default: Expression,
 }
 
-function Lua.parseIfElseExpr(lexer: Lexer.lexer)
+function Lua.parseIfElseExpr(lexer: Lexer.Lexer)
 	-- ifelseexp ::= 'if' exp 'then' exp {'elseif' exp 'then' exp} 'else' exp
 	local routines: { IfExprRoutine } = {}
 
@@ -227,14 +228,13 @@ function Lua.parseIfElseExpr(lexer: Lexer.lexer)
 
 		local bodyExpr = Lua.parseExp(lexer)
 		table.insert(routines, {
-			expr = ifExpr,
-			body = bodyExpr,
+			expr = ifExpr :: Expression,
+			body = bodyExpr :: Expression,
 		})
-
 	until not lexer:expectKey("elseif")
 
 	lexer:assert(lexer:expectKey("else"), "If-else expression expected 'else'")
-	local defaultExpr = Lua.parseExp(lexer)
+	local defaultExpr = Lua.parseExp(lexer) :: Expression
 
 	lexer:assert(defaultExpr, "If-else expression expected Expression")
 
@@ -349,6 +349,7 @@ export type MethodExpr = {
 
 export type Expression = BasicExpr 
 	| MethodExpr
+	| IfElseExpr
 	| TableExpr 
 	| UnopExpr
 	| Expr
@@ -361,7 +362,7 @@ function Lua.parsePrimaryExp(lexer: Lexer.Lexer): Expression?
 	if not currentExpr then
 		return nil
 	end
-	
+
 	while not lexer:eof() do
 		if lexer:expectKey('.') then
 			-- var ::= prefixexp `.´ Name
@@ -489,7 +490,7 @@ local LuaOperatorsConstantFold = {
 	['^'] = function(a: number, b: number): number return a ^ b end,
 	['%'] = function(a: number, b: number): number return a % b end,
 	['/'] = function(a: number, b: number): number return a / b end,
-	
+
 	['<'] = function(a: number, b: number): boolean return a < b end,
 	['<='] = function(a: number, b: number): boolean return a <= b end,
 	['>'] = function(a: number, b: number): boolean return a > b end,
@@ -540,7 +541,7 @@ function Lua.parseExp(lexer: Lexer.Lexer, maybeLimit: number?): Expression?
 			primaryExpr = {
 				type = "operator",
 				operator = operator,
-				
+
 				left = primaryExpr,
 				right = right,
 			}
